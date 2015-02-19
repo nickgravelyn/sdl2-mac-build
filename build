@@ -6,7 +6,7 @@ require 'fileutils'
 ROOT = File.expand_path '..', __FILE__
 
 # Where we're going to copy the built binaries and headers
-OUT_DIR = File.join ROOT, 'lib'
+OUT_DIR = File.join ROOT, 'out'
 FileUtils.mkdir_p OUT_DIR
 
 # We need a clean temporary directory to do our work
@@ -70,6 +70,9 @@ Dir.chdir(TEMP_ROOT) do
     exec "install_name_tool -id \"@executable_path/#{full_lib_name}\" \"#{OUT_DIR}/#{full_lib_name}\""
     exec "install_name_tool -change \"#{TEMP_ROOT}/lib/libSDL2-2.0.0.dylib\" \"@executable_path/libSDL2-2.0.0.dylib\" \"#{OUT_DIR}/#{full_lib_name}\""
   end
+
+  # Copy over SDL_config.h as that's the only header that is platform specific
+  FileUtils.cp 'include/SDL2/SDL_config.h', "#{OUT_DIR}/SDL_config.h"
 end
 
 # Lastly we recreate the symlinks that let apps use shortnames for the libraries

@@ -11,7 +11,7 @@ A simple Ruby based system to build SDL2 (and family) as dylibs for Mac OS X.
 
 The `download` script downloads the source packages for the libraries. This script sets up absolute paths to the files on the web so it's fragile and won't automatically get you the latest (if an update has come out since the script was updated). As such you can skip the script and download the `.tar.gz` source bundles manually from the project pages:
 
-- [http://libsdl.org/download-2.0.php](http://libsdl.org/download-2.0.php).
+- [http://libsdl.org/download-2.0.php](http://libsdl.org/download-2.0.php)
 - [https://www.libsdl.org/projects/SDL_image/](https://www.libsdl.org/projects/SDL_image/)
 - [https://www.libsdl.org/projects/SDL_mixer/](https://www.libsdl.org/projects/SDL_mixer/)
 - [https://www.libsdl.org/projects/SDL_net/](https://www.libsdl.org/projects/SDL_net/)

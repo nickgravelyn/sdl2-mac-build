@@ -15,14 +15,14 @@ FileUtils.rm_r TEMP_ROOT if File.directory? TEMP_ROOT
 FileUtils.mkdir_p TEMP_ROOT
 
 # Main SDL2 build flags to build a universal binary that is compatible with OS X 10.5 or newer
-SDL2_FLAGS = '-arch i386 -arch x86_64 -mmacosx-version-min=10.5'
+SDL2_FLAGS = '-arch x86_64 -mmacosx-version-min=10.5'
 
 # Flags for extra libs (sdl2_image, sdl2_mixer, etc)
 SDL2_EXTRA_CFLAGS = "#{SDL2_FLAGS} -I'#{TEMP_ROOT}/include/SDL2'"
 SDL2_EXTRA_LDFLAGS = "#{SDL2_FLAGS} -L'#{TEMP_ROOT}/lib'"
 
 # Wrapper for system that logs the command before running it
-def exec(cmd)
+def command(cmd)
   puts "+ #{cmd}"
   system cmd
 end
@@ -32,7 +32,7 @@ Dir.chdir(TEMP_ROOT) do
   # Find all our source files
   Dir["#{ROOT}/*.tar.gz"].each do |file|
     # Unzip to our temp directory
-    exec "gunzip -c '#{file}' | tar xopf -"
+    command "gunzip -c '#{file}' | tar xopf -"
 
     # The source files have versions in their names but to make this script forward compatible
     # we want to remove the version information from the directory names.
@@ -43,13 +43,13 @@ Dir.chdir(TEMP_ROOT) do
 
   # Build SDL2 first
   Dir.chdir('SDL2') do
-    exec "CFLAGS=\"#{SDL2_FLAGS}\" CXXFLAGS=\"#{SDL2_FLAGS}\" LDFLAGS=\"#{SDL2_FLAGS}\" ./configure --prefix=\"#{TEMP_ROOT}\" --without-x --disable-assembly"
-    exec 'make install'
+    command "CFLAGS=\"#{SDL2_FLAGS}\" CXXFLAGS=\"#{SDL2_FLAGS}\" LDFLAGS=\"#{SDL2_FLAGS}\" ./configure --prefix=\"#{TEMP_ROOT}\" --without-x --disable-assembly"
+    command 'make install'
   end
 
   # Copy the library and fix it up with install_name_tool so it works when bundled in an app
   FileUtils.cp 'lib/libSDL2-2.0.0.dylib', OUT_DIR
-  exec "install_name_tool -id \"@executable_path/libSDL2-2.0.0.dylib\" \"#{OUT_DIR}/libSDL2-2.0.0.dylib\""
+  command "install_name_tool -id \"@executable_path/libSDL2-2.0.0.dylib\" \"#{OUT_DIR}/libSDL2-2.0.0.dylib\""
 
   # Then we can build all the other libraries in a simple loop since they all build with the same process
   %w(SDL2_image SDL2_mixer SDL2_net SDL2_ttf).each do |lib|
@@ -58,8 +58,8 @@ Dir.chdir(TEMP_ROOT) do
 
     # Enter the directory and do the build
     Dir.chdir(lib) do
-      exec "CFLAGS=\"#{SDL2_EXTRA_CFLAGS}\" CXXFLAGS=\"#{SDL2_EXTRA_CFLAGS}\" LDFLAGS=\"#{SDL2_EXTRA_LDFLAGS}\" ./configure --prefix=\"#{TEMP_ROOT}\" --without-x --disable-assembly"
-      exec 'make install'
+      command "CFLAGS=\"#{SDL2_EXTRA_CFLAGS}\" CXXFLAGS=\"#{SDL2_EXTRA_CFLAGS}\" LDFLAGS=\"#{SDL2_EXTRA_LDFLAGS}\" ./configure --prefix=\"#{TEMP_ROOT}\" --without-x --disable-assembly"
+      command 'make install'
     end
 
     # Copy the resulting lib to our output
@@ -67,8 +67,8 @@ Dir.chdir(TEMP_ROOT) do
     FileUtils.cp "lib/#{full_lib_name}", OUT_DIR
 
     # Fix up the library with install_name_tool so it works when bundled in an app
-    exec "install_name_tool -id \"@executable_path/#{full_lib_name}\" \"#{OUT_DIR}/#{full_lib_name}\""
-    exec "install_name_tool -change \"#{TEMP_ROOT}/lib/libSDL2-2.0.0.dylib\" \"@executable_path/libSDL2-2.0.0.dylib\" \"#{OUT_DIR}/#{full_lib_name}\""
+    command "install_name_tool -id \"@executable_path/#{full_lib_name}\" \"#{OUT_DIR}/#{full_lib_name}\""
+    command "install_name_tool -change \"#{TEMP_ROOT}/lib/libSDL2-2.0.0.dylib\" \"@executable_path/libSDL2-2.0.0.dylib\" \"#{OUT_DIR}/#{full_lib_name}\""
   end
 
   # Copy over SDL_config.h as that's the only header that is platform specific
@@ -76,9 +76,11 @@ Dir.chdir(TEMP_ROOT) do
 end
 
 # Lastly we recreate the symlinks that let apps use shortnames for the libraries
-Dir["#{OUT_DIR}/*.dylib"].each do |lib|
-  short_name = File.basename(lib).gsub(/-.+?.dylib$/, '.dylib')
-  exec "ln -s '#{lib}' '#{OUT_DIR}/#{short_name}'"
+Dir.chdir(OUT_DIR) do
+  Dir["*.dylib"].each do |lib|
+    short_name = File.basename(lib).gsub(/-.+?.dylib$/, '.dylib')
+    command "ln -s '#{lib}' '#{short_name}'"
+  end
 end
 
 # Cleanup

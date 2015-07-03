@@ -2,12 +2,17 @@
 
 require 'fileutils'
 
+from_source = ARGV.include? 'source'
+
 # Root of operations is wherever this script is
 ROOT = File.expand_path '..', __FILE__
 
 # Where we're going to copy the built binaries and headers
 OUT_DIR = File.join ROOT, 'out'
 FileUtils.mkdir_p OUT_DIR
+
+# Where downloads of source code from source control live
+SOURCE_DIR = File.join ROOT, 'source'
 
 # We need a clean temporary directory to do our work
 TEMP_ROOT = File.join ROOT, 'temp'
@@ -29,16 +34,25 @@ end
 
 # Move into the temp directory for most of our work
 Dir.chdir(TEMP_ROOT) do
-  # Find all our source files
-  Dir["#{ROOT}/*.tar.gz"].each do |file|
-    # Unzip to our temp directory
-    command "gunzip -c '#{file}' | tar xopf -"
+  if from_source
+    Dir["#{SOURCE_DIR}/*"].each do |dir|
+      # Just want to copy to our temp directory so we don't mess up the nice source control
+      dst_dir = File.join(TEMP_ROOT, File.basename(dir))
+      puts "Copying #{dir} to #{dst_dir}"
+      FileUtils.cp_r dir, dst_dir
+    end
+  else
+    # Find all our source files
+    Dir["#{ROOT}/*.tar.gz"].each do |file|
+      # Unzip to our temp directory
+      command "gunzip -c '#{file}' | tar xopf -"
 
-    # The source files have versions in their names but to make this script forward compatible
-    # we want to remove the version information from the directory names.
-    old_dir = File.basename(file).gsub(/\.tar\.gz$/, '')
-    new_dir = old_dir.gsub(/-.+/, '')
-    FileUtils.mv old_dir, new_dir
+      # The source files have versions in their names but to make this script forward compatible
+      # we want to remove the version information from the directory names.
+      old_dir = File.basename(file).gsub(/\.tar\.gz$/, '')
+      new_dir = old_dir.gsub(/2-.+/, '')
+      FileUtils.mv old_dir, new_dir
+    end
   end
 
   # Build SDL2 first

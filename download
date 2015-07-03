@@ -1,22 +1,43 @@
 #!/usr/bin/env ruby
 
+require 'fileutils'
 require 'net/http'
 
-# Helper for downloading our files
-def download(domain, path)
-  target_file = File.basename path
-  puts "Downloading #{domain}#{path} to #{target_file}"
-  Net::HTTP.start(domain) do |http|
-    resp = http.get path
-    open(target_file, "wb") do |file|
-      file.write(resp.body)
+from_source = ARGV.include? 'source'
+
+if from_source
+  source_dir = File.expand_path '../source', __FILE__
+  FileUtils.mkdir_p source_dir
+
+  Dir.chdir(source_dir) do
+    def get(path, dir)
+      puts "Checking out #{path} into #{dir}"
+      fail "Failed to clone repository" unless system("hg clone #{path} #{dir}")
+    end
+
+    get 'https://hg.libsdl.org/SDL', 'SDL2'
+    get 'https://hg.libsdl.org/SDL_image', 'SDL2_image'
+    get 'https://hg.libsdl.org/SDL_mixer', 'SDL2_mixer'
+    get 'https://hg.libsdl.org/SDL_net', 'SDL2_net'
+    get 'https://hg.libsdl.org/SDL_ttf', 'SDL2_ttf'
+  end
+else
+  # Helper for downloading our files
+  def download(domain, path)
+    target_file = File.basename path
+    puts "Downloading #{domain}#{path} to #{target_file}"
+    Net::HTTP.start(domain) do |http|
+      resp = http.get path
+      open(target_file, "wb") do |file|
+        file.write(resp.body)
+      end
     end
   end
-end
 
-# Download each of our files
-download 'libsdl.org', '/release/SDL2-2.0.3.tar.gz'
-download 'libsdl.org', '/projects/SDL_image/release/SDL2_image-2.0.0.tar.gz'
-download 'libsdl.org', '/projects/SDL_mixer/release/SDL2_mixer-2.0.0.tar.gz'
-download 'libsdl.org', '/projects/SDL_net/release/SDL2_net-2.0.0.tar.gz'
-download 'libsdl.org', '/projects/SDL_ttf/release/SDL2_ttf-2.0.12.tar.gz'
+  # Download each of our files
+  download 'libsdl.org', '/release/SDL2-2.0.3.tar.gz'
+  download 'libsdl.org', '/projects/SDL_image/release/SDL2_image-2.0.0.tar.gz'
+  download 'libsdl.org', '/projects/SDL_mixer/release/SDL2_mixer-2.0.0.tar.gz'
+  download 'libsdl.org', '/projects/SDL_net/release/SDL2_net-2.0.0.tar.gz'
+  download 'libsdl.org', '/projects/SDL_ttf/release/SDL2_ttf-2.0.12.tar.gz'
+end

@@ -50,7 +50,7 @@ Dir.chdir(TEMP_ROOT) do
       # The source files have versions in their names but to make this script forward compatible
       # we want to remove the version information from the directory names.
       old_dir = File.basename(file).gsub(/\.tar\.gz$/, '')
-      new_dir = old_dir.gsub(/2-.+/, '')
+      new_dir = old_dir.gsub(/-2.+/, '')
       FileUtils.mv old_dir, new_dir
     end
   end

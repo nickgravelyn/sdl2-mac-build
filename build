@@ -19,8 +19,8 @@ TEMP_ROOT = File.join ROOT, 'temp'
 FileUtils.rm_r TEMP_ROOT if File.directory? TEMP_ROOT
 FileUtils.mkdir_p TEMP_ROOT
 
-# Main SDL2 build flags to build a universal binary that is compatible with OS X 10.5 or newer
-SDL2_FLAGS = '-arch x86_64 -mmacosx-version-min=10.5'
+# Main SDL2 build flags to build a universal binary that is compatible with OS X 10.7 or newer
+SDL2_FLAGS = '-arch x86_64 -mmacosx-version-min=10.7'
 
 # Flags for extra libs (sdl2_image, sdl2_mixer, etc)
 SDL2_EXTRA_CFLAGS = "#{SDL2_FLAGS} -I'#{TEMP_ROOT}/include/SDL2'"

@@ -19,7 +19,7 @@ The `download` script downloads the source packages for the libraries. This scri
 
 While the download script will download all of these projects, only the main SDL2 project is required; each of the other libraries are optional and you can skip them if you have no use for them.
 
-The `build` script then unzips the source archives to a temp directory before doing the builds. All dylibs are built as universal binaries for OS X 10.5 or higher (`-arch x86_64 -mmacosx-version-min=10.5`) and the script uses `install_name_tool` to fix up all paths so the dylibs are expected to be placed next to the executable in the app bundle. The script also generates helpful symlinks without the version in the name, in case you want to use that type of system for linking the libraries.
+The `build` script then unzips the source archives to a temp directory before doing the builds. All dylibs are built as universal binaries for OS X 10.7 or higher (`-arch x86_64 -mmacosx-version-min=10.7`) and the script uses `install_name_tool` to fix up all paths so the dylibs are expected to be placed next to the executable in the app bundle. The script also generates helpful symlinks without the version in the name, in case you want to use that type of system for linking the libraries.
 
 ## Caveat
 

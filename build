@@ -63,7 +63,7 @@ Dir.chdir(TEMP_ROOT) do
 
   # Copy the library and fix it up with install_name_tool so it works when bundled in an app
   FileUtils.cp 'lib/libSDL2-2.0.0.dylib', OUT_DIR
-  command "install_name_tool -id \"@executable_path/../Frameworks/libSDL2-2.0.0.dylib\" \"#{OUT_DIR}/libSDL2-2.0.0.dylib\""
+  command "install_name_tool -id \"@rpath/libSDL2-2.0.0.dylib\" \"#{OUT_DIR}/libSDL2-2.0.0.dylib\""
 
   # Then we can build all the other libraries in a simple loop since they all build with the same process
   %w(SDL2_image SDL2_mixer SDL2_net SDL2_ttf).each do |lib|
@@ -81,8 +81,8 @@ Dir.chdir(TEMP_ROOT) do
     FileUtils.cp "lib/#{full_lib_name}", OUT_DIR
 
     # Fix up the library with install_name_tool so it works when bundled in an app
-    command "install_name_tool -id \"@executable_path/../Frameworks/#{full_lib_name}\" \"#{OUT_DIR}/#{full_lib_name}\""
-    command "install_name_tool -change \"#{TEMP_ROOT}/lib/libSDL2-2.0.0.dylib\" \"@executable_path/../Frameworks/libSDL2-2.0.0.dylib\" \"#{OUT_DIR}/#{full_lib_name}\""
+    command "install_name_tool -id \"@rpath/#{full_lib_name}\" \"#{OUT_DIR}/#{full_lib_name}\""
+    command "install_name_tool -change \"#{TEMP_ROOT}/lib/libSDL2-2.0.0.dylib\" \"@rpath/libSDL2-2.0.0.dylib\" \"#{OUT_DIR}/#{full_lib_name}\""
   end
 
   # Copy over SDL_config.h as that's the only header that is platform specific

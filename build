@@ -2,100 +2,78 @@
 
 require 'fileutils'
 
-from_source = ARGV.include? 'source'
+Dir.chdir(File.expand_path('..', __FILE__))
 
-# Root of operations is wherever this script is
-ROOT = File.expand_path '..', __FILE__
+FileUtils.rm_r('temp') if File.directory?('temp')
+FileUtils.mkdir_p('temp')
 
-# Where we're going to copy the built binaries and headers
-OUT_DIR = File.join ROOT, 'out'
-FileUtils.mkdir_p OUT_DIR
+FileUtils.rm_r('out') if File.directory?('out')
+FileUtils.mkdir_p('out')
 
-# Where downloads of source code from source control live
-SOURCE_DIR = File.join ROOT, 'source'
-
-# We need a clean temporary directory to do our work
-TEMP_ROOT = File.join ROOT, 'temp'
-FileUtils.rm_r TEMP_ROOT if File.directory? TEMP_ROOT
-FileUtils.mkdir_p TEMP_ROOT
-
-# Main SDL2 build flags to build a 64-bit binary for OS X 10.7 or newer
-SDL2_FLAGS = '-arch x86_64 -mmacosx-version-min=10.7'
-
-# Flags for extra libs (sdl2_image, sdl2_mixer, etc)
-SDL2_EXTRA_CFLAGS = "#{SDL2_FLAGS} -I'#{TEMP_ROOT}/include/SDL2'"
-SDL2_EXTRA_LDFLAGS = "#{SDL2_FLAGS} -L'#{TEMP_ROOT}/lib'"
-
-# Wrapper for system that logs the command before running it
-def command(cmd)
-  puts "+ #{cmd}"
-  system cmd
-end
-
-# Move into the temp directory for most of our work
-Dir.chdir(TEMP_ROOT) do
-  if from_source
-    Dir["#{SOURCE_DIR}/*"].each do |dir|
-      # Just want to copy to our temp directory so we don't mess up the nice source control
-      dst_dir = File.join(TEMP_ROOT, File.basename(dir))
-      puts "Copying #{dir} to #{dst_dir}"
-      FileUtils.cp_r dir, dst_dir
-    end
-  else
-    # Find all our source files
-    Dir["#{ROOT}/*.tar.gz"].each do |file|
-      # Unzip to our temp directory
-      command "gunzip -c '#{file}' | tar xopf -"
-
-      # The source files have versions in their names but to make this script forward compatible
-      # we want to remove the version information from the directory names.
+if ARGV.include?('--from-source')
+  Dir['source/*'].each do |dir|
+    dst_dir = File.join('temp', File.basename(dir))
+    FileUtils.cp_r(dir, dst_dir)
+  end
+else
+  Dir.chdir('temp') do
+    Dir['../*.tar.gz'].each do |file|
+      system("gunzip -c '#{file}' | tar xopf -")
       old_dir = File.basename(file).gsub(/\.tar\.gz$/, '')
       new_dir = old_dir.gsub(/-2.+/, '')
-      FileUtils.mv old_dir, new_dir
+      FileUtils.mv(old_dir, new_dir)
     end
-  end
-
-  # Build SDL2 first
-  Dir.chdir('SDL2') do
-    command "CFLAGS=\"#{SDL2_FLAGS}\" CXXFLAGS=\"#{SDL2_FLAGS}\" LDFLAGS=\"#{SDL2_FLAGS}\" ./configure --prefix=\"#{TEMP_ROOT}\" --without-x --disable-assembly"
-    command 'make install'
-  end
-
-  # Copy the library and fix it up with install_name_tool so it works when bundled in an app
-  FileUtils.cp 'lib/libSDL2-2.0.0.dylib', OUT_DIR
-  command "install_name_tool -id \"@rpath/libSDL2-2.0.0.dylib\" \"#{OUT_DIR}/libSDL2-2.0.0.dylib\""
-
-  # Then we can build all the other libraries in a simple loop since they all build with the same process
-  %w(SDL2_image SDL2_mixer SDL2_net SDL2_ttf).each do |lib|
-    # Skip any that don't exist!
-    next unless File.directory? lib
-
-    # Enter the directory and do the build
-    Dir.chdir(lib) do
-      command "CFLAGS=\"#{SDL2_EXTRA_CFLAGS}\" CXXFLAGS=\"#{SDL2_EXTRA_CFLAGS}\" LDFLAGS=\"#{SDL2_EXTRA_LDFLAGS}\" ./configure --prefix=\"#{TEMP_ROOT}\" --without-x --disable-assembly"
-      command 'make install'
-    end
-
-    # Copy the resulting lib to our output
-    full_lib_name = "lib#{lib}-2.0.0.dylib"
-    FileUtils.cp "lib/#{full_lib_name}", OUT_DIR
-
-    # Fix up the library with install_name_tool so it works when bundled in an app
-    command "install_name_tool -id \"@rpath/#{full_lib_name}\" \"#{OUT_DIR}/#{full_lib_name}\""
-    command "install_name_tool -change \"#{TEMP_ROOT}/lib/libSDL2-2.0.0.dylib\" \"@rpath/libSDL2-2.0.0.dylib\" \"#{OUT_DIR}/#{full_lib_name}\""
-  end
-
-  # Copy over SDL_config.h as that's the only header that is platform specific
-  FileUtils.cp 'include/SDL2/SDL_config.h', "#{OUT_DIR}/SDL_config.h"
-end
-
-# Lastly we recreate the symlinks that let apps use shortnames for the libraries
-Dir.chdir(OUT_DIR) do
-  Dir["*.dylib"].each do |lib|
-    short_name = File.basename(lib).gsub(/-.+?.dylib$/, '.dylib')
-    command "ln -s '#{lib}' '#{short_name}'"
   end
 end
 
-# Cleanup
-FileUtils.rm_r TEMP_ROOT if File.directory? TEMP_ROOT
+LIBRARIES = %w{SDL2 SDL2_image SDL2_mixer SDL2_net SDL2_ttf}.filter {|l| File.directory?("temp/#{l}")}
+
+FileUtils.mkdir_p('out/include')
+FileUtils.mkdir_p('out/lib')
+
+intermediate_dir = File.expand_path("temp/intermediate")
+FileUtils.mkdir_p(intermediate_dir)
+
+LIBRARIES.each do |lib|
+  args = [
+    "-arch x86_64 -arch arm64",
+    "-mmacosx-version-min=11"
+  ]
+
+  if lib != 'SDL2'
+    args = [
+      *args,
+      "-I'#{intermediate_dir}/include/SDL2'",
+      "-L'#{intermediate_dir}/lib'"
+    ]
+  end
+
+  args = args.join(' ')
+
+  Dir.chdir("temp/#{lib}") do
+    system("CFLAGS=\"#{args}\" CXXFLAGS=\"#{args}\" LDFLAGS=\"#{args}\" ./configure --prefix=\"#{intermediate_dir}\"")
+    system('make install')
+  end
+
+  if lib == 'SDL2'
+    FileUtils.cp_r("#{intermediate_dir}/include/SDL2/.", "out/include")
+  else
+    FileUtils.cp("temp/#{lib}/#{lib.gsub('SDL2', 'SDL')}.h", "out/include")
+  end
+
+  full_lib_name = "lib#{lib}-2.0.0.dylib"
+
+  FileUtils.cp(
+    "#{intermediate_dir}/lib/#{full_lib_name}",
+    'out/lib'
+  )
+
+  Dir.chdir('out/lib') do
+    system("install_name_tool -id @rpath/#{full_lib_name} #{full_lib_name}")
+    if lib != "SDL2"
+      system("install_name_tool -change \"#{intermediate_dir}/lib/libSDL2-2.0.0.dylib\" @rpath/libSDL2-2.0.0.dylib #{full_lib_name}")
+    end
+    system("ln -s #{full_lib_name} lib#{lib}.dylib")
+  end
+end
+
